@@ -3,40 +3,39 @@ from flask_cors import CORS
 import pandas as pd
 import mysql.connector
 from mysql.connector import Error
-import os
+import json
+import io
 from datetime import date
 import traceback
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 # ─── DB CONFIG ────────────────────────────────────────────────────────────────
 DB_CONFIG = {
     "host": "localhost",
     "user": "root",
-    "password": "",          # XAMPP default is empty
+    "password": "",          # XAMPP default is empty — change if needed
     "port": 3306,
 }
 DB_NAME = "tree_management"
 
-# ─── COLUMN MAPPING  (Excel column index → DB field)  0-based ─────────────────
-# B=1, C=2, D=3, E=4, F=5, G=6, H=7, I=8, J=9, K=10, L=11, M=12, N=13, O=14, P=15
 DEFAULT_COLUMN_MAP = {
-    "tree_no":               1,   # B
-    "common_name":           2,   # C
-    "dbh":                   3,   # D
-    "mh":                    4,   # E
-    "th":                    5,   # F
-    "gross_volume":          6,   # G
-    "trees_defect":          7,   # H
-    "trees_longitude":       8,   # I
-    "trees_latitude":        9,   # J
-    "hazard_rating":         10,  # K
-    "nog":                   11,  # L
-    "evaluation":            12,  # M
-    "recommendation_type":   13,  # N
-    "recommendation_action": 14,  # O
-    "recommendation":        15,  # P
+    "tree_no":               1,
+    "common_name":           2,
+    "dbh":                   3,
+    "mh":                    4,
+    "th":                    5,
+    "gross_volume":          6,
+    "trees_defect":          7,
+    "trees_longitude":       8,
+    "trees_latitude":        9,
+    "hazard_rating":         10,
+    "nog":                   11,
+    "evaluation":            12,
+    "recommendation_type":   13,
+    "recommendation_action": 14,
+    "recommendation":        15,
 }
 
 
@@ -47,7 +46,32 @@ def get_connection(with_db=True):
     return mysql.connector.connect(**cfg)
 
 
-# ─── INIT DATABASE ────────────────────────────────────────────────────────────
+def read_file(file, header_row):
+    filename = file.filename.lower()
+    raw = file.read()
+    if filename.endswith(".csv"):
+        for enc in ("utf-8", "utf-8-sig", "latin-1", "cp1252"):
+            try:
+                df = pd.read_csv(io.BytesIO(raw), header=header_row - 1, encoding=enc, dtype=str)
+                return df.reset_index(drop=True)
+            except UnicodeDecodeError:
+                continue
+        raise ValueError("Could not decode CSV — try saving as UTF-8.")
+    else:
+        df = pd.read_excel(io.BytesIO(raw), header=header_row - 1, dtype=str)
+        return df.reset_index(drop=True)
+
+
+@app.route("/api/test-connection", methods=["GET"])
+def test_connection():
+    try:
+        conn = get_connection(with_db=False)
+        conn.close()
+        return jsonify({"success": True, "message": "Connected to MySQL successfully."})
+    except Error as e:
+        return jsonify({"success": False, "message": str(e)})
+
+
 @app.route("/api/init-db", methods=["POST"])
 def init_db():
     try:
@@ -57,69 +81,79 @@ def init_db():
         cur.execute(f"USE `{DB_NAME}`")
         cur.execute("""
             CREATE TABLE IF NOT EXISTS trees (
-                id                   INT(20) AUTO_INCREMENT PRIMARY KEY,
-                app_id               INT(20),
-                date_created         VARCHAR(200),
-                action_officer_id    INT(20),
-                tree_no              VARCHAR(200),
-                common_name          TEXT,
-                dbh                  VARCHAR(200),
-                mh                   VARCHAR(200),
-                th                   VARCHAR(200),
-                gross_volume         VARCHAR(200),
-                trees_defect         TEXT,
-                trees_longitude      VARCHAR(200),
-                trees_latitude       VARCHAR(200),
-                hazard_rating        VARCHAR(200),
-                evaluation           TEXT,
-                nog                  VARCHAR(200),
+                id                    INT(20) AUTO_INCREMENT PRIMARY KEY,
+                app_id                INT(20),
+                date_created          VARCHAR(200),
+                action_officer_id     INT(20),
+                tree_no               VARCHAR(200),
+                common_name           TEXT,
+                dbh                   VARCHAR(200),
+                mh                    VARCHAR(200),
+                th                    VARCHAR(200),
+                gross_volume          VARCHAR(200),
+                trees_defect          TEXT,
+                trees_longitude       VARCHAR(200),
+                trees_latitude        VARCHAR(200),
+                hazard_rating         VARCHAR(200),
+                evaluation            TEXT,
+                nog                   VARCHAR(200),
                 recommendation_action VARCHAR(200),
-                recommendation       TEXT,
-                status               VARCHAR(200) DEFAULT 'Active',
-                recommendation_type  VARCHAR(200)
+                recommendation        TEXT,
+                status                VARCHAR(200) DEFAULT 'Active',
+                recommendation_type   VARCHAR(200)
             )
         """)
         conn.commit()
         cur.close()
         conn.close()
-        return jsonify({"success": True, "message": f"Database '{DB_NAME}' and table 'trees' ready."})
+        return jsonify({"success": True, "message": f"Database '{DB_NAME}' and table 'trees' are ready."})
     except Error as e:
-        return jsonify({"success": False, "message": str(e)}), 500
+        return jsonify({"success": False, "message": str(e)})
 
 
-# ─── UPLOAD & IMPORT ──────────────────────────────────────────────────────────
 @app.route("/api/upload", methods=["POST"])
 def upload():
     try:
         file         = request.files.get("file")
-        app_id       = request.form.get("app_id", "")
-        officer_id   = request.form.get("action_officer_id", "")
-        header_row   = int(request.form.get("header_row", 1))   # 1-based
+        app_id       = request.form.get("app_id", "") or None
+        officer_id   = request.form.get("action_officer_id", "") or None
+        header_row   = int(request.form.get("header_row", 1))
         col_map_json = request.form.get("column_map", "{}")
-
-        import json
-        col_map = {**DEFAULT_COLUMN_MAP, **json.loads(col_map_json)}
+        col_map      = {**DEFAULT_COLUMN_MAP, **json.loads(col_map_json)}
 
         if not file:
-            return jsonify({"success": False, "message": "No file provided."}), 400
+            return jsonify({"success": False, "message": "No file provided."})
 
-        # Read Excel – skip rows before header
-        df = pd.read_excel(file, header=header_row - 1)
-        df = df.reset_index(drop=True)
+        filename = file.filename.lower()
+        if not (filename.endswith(".xlsx") or filename.endswith(".xls") or filename.endswith(".csv")):
+            return jsonify({"success": False, "message": "Only .xlsx, .xls, or .csv files are supported."})
+
+        try:
+            df = read_file(file, header_row)
+        except Exception as e:
+            return jsonify({"success": False, "message": f"Could not read file: {str(e)}"})
 
         today = date.today().strftime("%Y-%m-%d")
 
-        conn = get_connection()
-        cur  = conn.cursor()
+        try:
+            conn = get_connection()
+        except Error as e:
+            return jsonify({"success": False, "message": f"DB connection failed: {str(e)}"})
 
+        cur = conn.cursor()
         inserted = 0
         errors   = []
 
         for idx, row in df.iterrows():
-            def cell(col_idx):
+            def cell(col_idx, r=row):
                 try:
-                    val = row.iloc[col_idx]
-                    return None if pd.isna(val) else str(val).strip()
+                    val = r.iloc[col_idx]
+                    if pd.isna(val):
+                        return None
+                    s = str(val).strip()
+                    if s.endswith(".0") and s[:-2].lstrip("-").isdigit():
+                        s = s[:-2]
+                    return s if s else None
                 except Exception:
                     return None
 
@@ -133,13 +167,11 @@ def upload():
                         recommendation_action, recommendation,
                         status, recommendation_type
                     ) VALUES (
-                        %s,%s,%s, %s,%s,%s,%s,%s,%s, %s,%s,%s,
-                        %s,%s,%s, %s,%s, %s,%s
+                        %s,%s,%s, %s,%s,%s,%s,%s,%s,
+                        %s,%s,%s, %s,%s,%s, %s,%s, %s,%s
                     )
                 """, (
-                    app_id or None,
-                    today,
-                    officer_id or None,
+                    app_id, today, officer_id,
                     cell(col_map["tree_no"]),
                     cell(col_map["common_name"]),
                     cell(col_map["dbh"]),
@@ -164,20 +196,13 @@ def upload():
         conn.commit()
         cur.close()
         conn.close()
-
-        return jsonify({
-            "success": True,
-            "inserted": inserted,
-            "total": len(df),
-            "errors": errors,
-        })
+        return jsonify({"success": True, "inserted": inserted, "total": len(df), "errors": errors})
 
     except Exception as e:
         traceback.print_exc()
-        return jsonify({"success": False, "message": str(e)}), 500
+        return jsonify({"success": False, "message": f"Unexpected error: {str(e)}"})
 
 
-# ─── FETCH RECORDS ────────────────────────────────────────────────────────────
 @app.route("/api/trees", methods=["GET"])
 def get_trees():
     try:
@@ -189,19 +214,8 @@ def get_trees():
         conn.close()
         return jsonify({"success": True, "data": rows})
     except Error as e:
-        return jsonify({"success": False, "message": str(e)}), 500
-
-
-# ─── TEST CONNECTION ──────────────────────────────────────────────────────────
-@app.route("/api/test-connection", methods=["GET"])
-def test_connection():
-    try:
-        conn = get_connection(with_db=False)
-        conn.close()
-        return jsonify({"success": True, "message": "Connected to MySQL successfully."})
-    except Error as e:
-        return jsonify({"success": False, "message": str(e)}), 500
+        return jsonify({"success": False, "message": str(e)})
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    app.run(debug=True, host="0.0.0.0", port=5000)

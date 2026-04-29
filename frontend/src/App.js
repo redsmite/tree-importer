@@ -95,8 +95,12 @@ export default function App() {
     if (accepted[0]) { setFile(accepted[0]); setResult(null); }
   }, []);
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop, accept: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-      'application/vnd.ms-excel': ['.xls'] }, multiple: false,
+    onDrop, accept: {
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+      'application/vnd.ms-excel': ['.xls'],
+      'text/csv': ['.csv'],
+      'application/csv': ['.csv'],
+    }, multiple: false,
   });
 
   // Upload
@@ -200,7 +204,7 @@ export default function App() {
                     ) : (
                       <div className="drop-prompt">
                         <span className="drop-icon">⬇</span>
-                        <p>Drop your <strong>.xlsx</strong> file here</p>
+                        <p>Drop your <strong>.xlsx</strong> or <strong>.csv</strong> file here</p>
                         <p className="drop-hint">or click to browse</p>
                       </div>
                     )}
