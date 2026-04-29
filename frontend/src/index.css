@@ -1,18 +1,25 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg:        #0d1117;
-  --surface:   #161b22;
-  --surface2:  #1e2530;
-  --border:    #2d3748;
-  --accent:    #39d353;
-  --accent2:   #58e88b;
-  --warn:      #f0c040;
-  --danger:    #f85149;
-  --text:      #e6edf3;
-  --muted:     #7d8590;
+  --bg:        #f5f7f2;
+  --surface:   #ffffff;
+  --surface2:  #f0f4eb;
+  --border:    #d4e0c8;
+  --border2:   #c2d4b4;
+  --accent:    #3a7d44;
+  --accent2:   #2d6235;
+  --accent-lt: #e8f5e3;
+  --bark:      #7a5c3a;
+  --bark-lt:   #f5efe8;
+  --warn:      #e08c2a;
+  --danger:    #c0392b;
+  --danger-lt: #fdecea;
+  --text:      #1e2d1a;
+  --muted:     #6b7f62;
   --mono:      'DM Mono', monospace;
   --sans:      'Syne', sans-serif;
+  --shadow:    0 2px 8px rgba(58,125,68,0.10);
+  --shadow-md: 0 4px 16px rgba(58,125,68,0.13);
 }
 
 body {
@@ -20,8 +27,12 @@ body {
   color: var(--text);
   font-family: var(--sans);
   min-height: 100vh;
+  background-image:
+    radial-gradient(circle at 15% 20%, rgba(58,125,68,0.06) 0%, transparent 50%),
+    radial-gradient(circle at 85% 80%, rgba(122,92,58,0.05) 0%, transparent 50%);
 }
 
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: var(--surface); }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--surface2); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent); }

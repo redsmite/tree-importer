@@ -151,7 +151,7 @@ export default function App() {
 
   return (
     <div className="app">
-      <Toaster position="top-right" toastOptions={{ style: { background: '#1e2530', color: '#e6edf3', border: '1px solid #2d3748' }}} />
+      <Toaster position="top-right" toastOptions={{ style: { background: '#ffffff', color: '#1e2d1a', border: '1px solid #d4e0c8', boxShadow: '0 4px 12px rgba(58,125,68,0.15)' }}} />
 
       {/* ── HEADER ── */}
       <header className="header">
