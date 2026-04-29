@@ -1,0 +1,27 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #0d1117;
+  --surface:   #161b22;
+  --surface2:  #1e2530;
+  --border:    #2d3748;
+  --accent:    #39d353;
+  --accent2:   #58e88b;
+  --warn:      #f0c040;
+  --danger:    #f85149;
+  --text:      #e6edf3;
+  --muted:     #7d8590;
+  --mono:      'DM Mono', monospace;
+  --sans:      'Syne', sans-serif;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  min-height: 100vh;
+}
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--surface); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
