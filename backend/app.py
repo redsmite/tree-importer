@@ -80,7 +80,7 @@ def init_db():
         cur.execute(f"CREATE DATABASE IF NOT EXISTS `{DB_NAME}`")
         cur.execute(f"USE `{DB_NAME}`")
         cur.execute("""
-            CREATE TABLE IF NOT EXISTS trees (
+            CREATE TABLE IF NOT EXISTS tcp_narrative_report (
                 id                    INT(20) AUTO_INCREMENT PRIMARY KEY,
                 app_id                INT(20),
                 date_created          VARCHAR(200),
@@ -106,7 +106,7 @@ def init_db():
         conn.commit()
         cur.close()
         conn.close()
-        return jsonify({"success": True, "message": f"Database '{DB_NAME}' and table 'trees' are ready."})
+        return jsonify({"success": True, "message": f"Database '{DB_NAME}' and table 'tcp_narrative_report' are ready."})
     except Error as e:
         return jsonify({"success": False, "message": str(e)})
 
@@ -159,7 +159,7 @@ def upload():
 
             try:
                 cur.execute("""
-                    INSERT INTO trees (
+                    INSERT INTO tcp_narrative_report (
                         app_id, date_created, action_officer_id,
                         tree_no, common_name, dbh, mh, th, gross_volume,
                         trees_defect, trees_longitude, trees_latitude,
@@ -196,7 +196,38 @@ def upload():
         conn.commit()
         cur.close()
         conn.close()
-        return jsonify({"success": True, "inserted": inserted, "total": len(df), "errors": errors})
+        # Build INSERT SQL statements for preview (excluding id — it's AUTO_INCREMENT)
+        sql_statements = []
+        conn2 = get_connection()
+        cur2  = conn2.cursor(dictionary=True)
+        cur2.execute(
+            "SELECT * FROM tcp_narrative_report ORDER BY id DESC LIMIT %s",
+            (inserted,)
+        )
+        rows = list(reversed(cur2.fetchall()))
+        cur2.close()
+        conn2.close()
+
+        fields = [
+            'app_id','date_created','action_officer_id','tree_no','common_name',
+            'dbh','mh','th','gross_volume','trees_defect','trees_longitude',
+            'trees_latitude','hazard_rating','evaluation','nog',
+            'recommendation_action','recommendation','status','recommendation_type'
+        ]
+
+        def sql_val(v):
+            if v is None:
+                return 'NULL'
+            return "'" + str(v).replace("'", "''") + "'"
+
+        for r in rows:
+            vals = ', '.join(sql_val(r.get(f)) for f in fields)
+            cols = ', '.join(fields)
+            sql_statements.append(
+                f"INSERT INTO tcp_narrative_report ({cols}) VALUES ({vals});"
+            )
+
+        return jsonify({"success": True, "inserted": inserted, "total": len(df), "errors": errors, "sql_statements": sql_statements})
 
     except Exception as e:
         traceback.print_exc()
@@ -208,7 +239,7 @@ def get_trees():
     try:
         conn = get_connection()
         cur  = conn.cursor(dictionary=True)
-        cur.execute("SELECT * FROM trees ORDER BY id DESC LIMIT 200")
+        cur.execute("SELECT * FROM tcp_narrative_report ORDER BY id DESC LIMIT 200")
         rows = cur.fetchall()
         cur.close()
         conn.close()

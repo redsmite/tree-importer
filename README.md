@@ -75,7 +75,7 @@ The UI will open at `http://localhost:3000`.
 ## 📋 Usage
 
 1. **Open** `http://localhost:3000`
-2. Click **Init / Reset DB** to create the `tree_management` database and `trees` table
+2. Click **Init / Reset DB** to create the `tree_management` database and `tcp_narrative_report` table
 3. Go to **⚙ Column Map** to verify or adjust Excel column mappings
 4. Go to **↑ Import**:
    - Drop your `.xlsx` file
@@ -118,7 +118,7 @@ The UI will open at `http://localhost:3000`.
 ```sql
 CREATE DATABASE IF NOT EXISTS tree_management;
 
-CREATE TABLE trees (
+CREATE TABLE tcp_narrative_report (
     id                    INT(20) AUTO_INCREMENT PRIMARY KEY,
     app_id                INT(20),
     date_created          VARCHAR(200),

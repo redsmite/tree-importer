@@ -51,6 +51,38 @@ function StatCard({ label, value, accent }) {
   );
 }
 
+
+function SqlBox({ statements }) {
+  const [copied, setCopied] = React.useState(false);
+  const text = statements.join('\n');
+  const handleCopy = () => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+  return (
+    <div className="sql-box-wrap">
+      <div className="sql-box-header">
+        <span className="sql-box-label">📋 INSERT SQL <span className="sql-row-count">({statements.length} rows)</span></span>
+        <button className="btn-copy" onClick={handleCopy} title="Copy all SQL">
+          {copied ? (
+            <><span className="copy-icon">✓</span> Copied!</>
+          ) : (
+            <><span className="copy-icon">⎘</span> Copy All</>
+          )}
+        </button>
+      </div>
+      <textarea
+        className="sql-textarea"
+        readOnly
+        value={text}
+        spellCheck={false}
+      />
+    </div>
+  );
+}
+
 // ─── MAIN APP ────────────────────────────────────────────────────────────────
 export default function App() {
   const [tab, setTab] = useState('import');
@@ -261,6 +293,9 @@ export default function App() {
                         <p className="error-title">Row errors:</p>
                         {result.errors.map((e, i) => <p key={i} className="error-item">⚠ {e}</p>)}
                       </div>
+                    )}
+                    {result.sql_statements && result.sql_statements.length > 0 && (
+                      <SqlBox statements={result.sql_statements} />
                     )}
                   </section>
                 )}
