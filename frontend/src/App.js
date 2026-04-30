@@ -1,28 +1,17 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useDropzone } from 'react-dropzone';
 import toast, { Toaster } from 'react-hot-toast';
 import './App.css';
 
-// ─── COLUMN MAP DEFAULTS ────────────────────────────────────────────────────
+// ─── CONSTANTS ───────────────────────────────────────────────────────────────
 const FIELD_LABELS = {
-  tree_no: 'Tree No',
-  common_name: 'Common Name',
-  dbh: 'DBH',
-  mh: 'MH',
-  th: 'TH',
-  gross_volume: 'Gross Volume',
-  trees_defect: 'Trees Defect',
-  trees_longitude: 'Longitude',
-  trees_latitude: 'Latitude',
-  hazard_rating: 'Hazard Rating',
-  nog: 'NOG',
-  evaluation: 'Evaluation',
-  recommendation_type: 'Rec. Type',
-  recommendation_action: 'Rec. Action',
-  recommendation: 'Recommendation',
+  tree_no: 'Tree No', common_name: 'Common Name', dbh: 'DBH', mh: 'MH', th: 'TH',
+  gross_volume: 'Gross Volume', trees_defect: 'Trees Defect', trees_longitude: 'Longitude',
+  trees_latitude: 'Latitude', hazard_rating: 'Hazard Rating', nog: 'NOG',
+  evaluation: 'Evaluation', recommendation_type: 'Rec. Type',
+  recommendation_action: 'Rec. Action', recommendation: 'Recommendation',
 };
-
 const DEFAULT_COL_MAP = {
   tree_no: 1, common_name: 2, dbh: 3, mh: 4, th: 5,
   gross_volume: 6, trees_defect: 7, trees_longitude: 8,
@@ -30,16 +19,21 @@ const DEFAULT_COL_MAP = {
   evaluation: 12, recommendation_type: 13,
   recommendation_action: 14, recommendation: 15,
 };
+const COL_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+const LS_KEY = 'tree_attachments';
 
-const COL_LETTERS = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z'];
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
+function loadAttachments() {
+  try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}'); }
+  catch { return {}; }
+}
+function saveAttachments(data) {
+  localStorage.setItem(LS_KEY, JSON.stringify(data));
+}
 
-// ─── COMPONENTS ─────────────────────────────────────────────────────────────
+// ─── SUB-COMPONENTS ──────────────────────────────────────────────────────────
 function StatusBadge({ ok }) {
-  return (
-    <span className={`badge ${ok ? 'badge-ok' : 'badge-err'}`}>
-      {ok ? '● CONNECTED' : '● OFFLINE'}
-    </span>
-  );
+  return <span className={`badge ${ok ? 'badge-ok' : 'badge-err'}`}>{ok ? '● CONNECTED' : '● OFFLINE'}</span>;
 }
 
 function StatCard({ label, value, accent }) {
@@ -51,42 +45,71 @@ function StatCard({ label, value, accent }) {
   );
 }
 
-
-function SqlBox({ statements }) {
-  const [copied, setCopied] = React.useState(false);
+function SqlBox({ statements, label }) {
+  const [copied, setCopied] = useState(false);
   const text = statements.join('\n');
   const handleCopy = () => {
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
+    navigator.clipboard.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
   };
   return (
     <div className="sql-box-wrap">
       <div className="sql-box-header">
-        <span className="sql-box-label">📋 INSERT SQL <span className="sql-row-count">({statements.length} rows)</span></span>
-        <button className="btn-copy" onClick={handleCopy} title="Copy all SQL">
-          {copied ? (
-            <><span className="copy-icon">✓</span> Copied!</>
-          ) : (
-            <><span className="copy-icon">⎘</span> Copy All</>
-          )}
+        <span className="sql-box-label">📋 {label || 'INSERT SQL'} <span className="sql-row-count">({statements.length} rows)</span></span>
+        <button className="btn-copy" onClick={handleCopy}>
+          {copied ? <><span className="copy-icon">✓</span> Copied!</> : <><span className="copy-icon">⎘</span> Copy All</>}
         </button>
       </div>
-      <textarea
-        className="sql-textarea"
-        readOnly
-        value={text}
-        spellCheck={false}
-      />
+      <textarea className="sql-textarea" readOnly value={text} spellCheck={false} />
     </div>
   );
 }
 
-// ─── MAIN APP ────────────────────────────────────────────────────────────────
+// ─── ATTACHMENT ROW ───────────────────────────────────────────────────────────
+function AttachmentRow({ treeNo, attachments, onChange }) {
+  const fileRef = useRef();
+  const files = attachments[treeNo] || [];
+
+  const handleFiles = (e) => {
+    const selected = Array.from(e.target.files).map(f => f.name);
+    const updated = { ...attachments, [treeNo]: [...files, ...selected] };
+    onChange(updated);
+    e.target.value = '';
+  };
+
+  const removeFile = (idx) => {
+    const updated = { ...attachments, [treeNo]: files.filter((_, i) => i !== idx) };
+    onChange(updated);
+  };
+
+  return (
+    <div className="attach-row">
+      <div className="attach-tree-label">
+        <span className="attach-tree-tag">Tree No: {treeNo}</span>
+        <button className="btn-upload-img" onClick={() => fileRef.current.click()}>
+          🖼 Upload Image
+        </button>
+        <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleFiles} />
+      </div>
+      <div className="attach-files">
+        {files.length === 0 ? (
+          <span className="attach-empty">No images uploaded</span>
+        ) : (
+          files.map((fname, i) => (
+            <div key={i} className="attach-file-chip">
+              <span className="attach-file-icon">🖼</span>
+              <span className="attach-file-name">{fname}</span>
+              <button className="attach-remove" onClick={() => removeFile(i)} title="Remove">✕</button>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function App() {
   const [tab, setTab] = useState('import');
-  const [dbReady, setDbReady] = useState(null);
   const [connected, setConnected] = useState(null);
 
   const [file, setFile] = useState(null);
@@ -100,29 +123,52 @@ export default function App() {
   const [records, setRecords] = useState([]);
   const [loadingRecords, setLoadingRecords] = useState(false);
 
-  // Test connection on mount
+  // Attachment state
+  const [attachments, setAttachments] = useState(loadAttachments());
+  const [startingReportId, setStartingReportId] = useState('');
+  const [attachSql, setAttachSql] = useState([]);
+
+  // Persist attachments to localStorage whenever they change
+  useEffect(() => { saveAttachments(attachments); }, [attachments]);
+
+  // Rebuild attachment SQL whenever attachments or startingReportId changes
+  useEffect(() => {
+    if (!result?.tree_rows?.length || !startingReportId) { setAttachSql([]); return; }
+    const baseId = parseInt(startingReportId, 10);
+    if (isNaN(baseId)) { setAttachSql([]); return; }
+
+    const today = new Date().toISOString().slice(0, 10);
+    const FILE_LOCATION = '/var/www/tcp/assets/attachments/NarrativeReport/';
+    const TYPE = 'Narrative Report';
+
+    const lines = [];
+    result.tree_rows.forEach((tr, idx) => {
+      const reportId = baseId + idx;
+      const files = attachments[tr.tree_no] || [];
+      files.forEach(fname => {
+        const escFname = fname.replace(/'/g, "''");
+        lines.push(
+          `INSERT INTO tcp_narrative_report_attachment (tcp_narrative_report_id, file_name, file_location, date_uploaded, type) VALUES ('${reportId}', '${escFname}', '${FILE_LOCATION}', '${today}', '${TYPE}');`
+        );
+      });
+    });
+    setAttachSql(lines);
+  }, [attachments, startingReportId, result]);
+
   useEffect(() => {
     axios.get('/api/test-connection')
       .then(r => setConnected(r.data.success))
       .catch(() => setConnected(false));
   }, []);
 
-  // Init DB
   const handleInitDb = async () => {
     try {
       const r = await axios.post('/api/init-db');
-      if (r.data.success) {
-        setDbReady(true);
-        toast.success(r.data.message);
-      } else {
-        toast.error(r.data.message);
-      }
-    } catch (e) {
-      toast.error('Failed to initialise database.');
-    }
+      if (r.data.success) toast.success(r.data.message);
+      else toast.error(r.data.message);
+    } catch { toast.error('Failed to initialise database.'); }
   };
 
-  // Dropzone
   const onDrop = useCallback(accepted => {
     if (accepted[0]) { setFile(accepted[0]); setResult(null); }
   }, []);
@@ -135,43 +181,33 @@ export default function App() {
     }, multiple: false,
   });
 
-  // Upload
   const handleUpload = async () => {
-    if (!file) return toast.error('Please select an Excel file first.');
+    if (!file) return toast.error('Please select a file first.');
     if (!appId) return toast.error('App ID is required.');
     if (!officerId) return toast.error('Action Officer ID is required.');
-    setLoading(true);
-    setResult(null);
+    setLoading(true); setResult(null);
     try {
       const fd = new FormData();
-      fd.append('file', file);
-      fd.append('app_id', appId);
-      fd.append('action_officer_id', officerId);
-      fd.append('header_row', headerRow);
+      fd.append('file', file); fd.append('app_id', appId);
+      fd.append('action_officer_id', officerId); fd.append('header_row', headerRow);
       fd.append('column_map', JSON.stringify(colMap));
       const r = await axios.post('/api/upload', fd);
       setResult(r.data);
       if (r.data.success) toast.success(`Inserted ${r.data.inserted} of ${r.data.total} rows.`);
+      else if (r.data.aborted) toast.error(`Import aborted — ${r.data.errors.length} validation error(s).`);
       else toast.error(r.data.message);
-    } catch (e) {
-      toast.error('Upload failed. Is the backend running?');
-    } finally {
-      setLoading(false);
-    }
+    } catch { toast.error('Upload failed. Is the backend running?'); }
+    finally { setLoading(false); }
   };
 
-  // Fetch records
   const fetchRecords = async () => {
     setLoadingRecords(true);
     try {
       const r = await axios.get('/api/trees');
       if (r.data.success) setRecords(r.data.data);
       else toast.error(r.data.message);
-    } catch {
-      toast.error('Could not fetch records.');
-    } finally {
-      setLoadingRecords(false);
-    }
+    } catch { toast.error('Could not fetch records.'); }
+    finally { setLoadingRecords(false); }
   };
 
   useEffect(() => { if (tab === 'records') fetchRecords(); }, [tab]);
@@ -181,11 +217,12 @@ export default function App() {
     if (!isNaN(n)) setColMap(m => ({ ...m, [field]: n }));
   };
 
+  const treeRows = result?.tree_rows || [];
+
   return (
     <div className="app">
       <Toaster position="top-right" toastOptions={{ style: { background: '#ffffff', color: '#1e2d1a', border: '1px solid #d4e0c8', boxShadow: '0 4px 12px rgba(58,125,68,0.15)' }}} />
 
-      {/* ── HEADER ── */}
       <header className="header">
         <div className="header-inner">
           <div className="header-brand">
@@ -202,7 +239,6 @@ export default function App() {
         </div>
       </header>
 
-      {/* ── TABS ── */}
       <nav className="tabs">
         {['import', 'column-map', 'records'].map(t => (
           <button key={t} className={`tab ${tab === t ? 'tab-active' : ''}`} onClick={() => setTab(t)}>
@@ -213,15 +249,14 @@ export default function App() {
 
       <main className="main">
 
-        {/* ══ IMPORT TAB ══════════════════════════════════════════════════════ */}
+        {/* ══ IMPORT TAB ══ */}
         {tab === 'import' && (
           <div className="panel fade-in">
             <div className="grid-2">
-
-              {/* Left: file + params */}
+              {/* Left */}
               <div className="col">
                 <section className="card">
-                  <h2 className="card-title">01 — Upload Excel</h2>
+                  <h2 className="card-title">01 — Upload File</h2>
                   <div {...getRootProps()} className={`dropzone ${isDragActive ? 'dropzone-active' : ''} ${file ? 'dropzone-filled' : ''}`}>
                     <input {...getInputProps()} />
                     {file ? (
@@ -270,54 +305,129 @@ export default function App() {
                 </section>
               </div>
 
-              {/* Right: action + result */}
+              {/* Right */}
               <div className="col">
                 <section className="card card-action">
                   <h2 className="card-title">03 — Execute</h2>
                   <button className={`btn btn-primary btn-lg ${loading ? 'btn-loading' : ''}`} onClick={handleUpload} disabled={loading}>
                     {loading ? <><span className="spinner" />Importing…</> : '↑ Import to MySQL'}
                   </button>
-                  <p className="action-hint">Rows already in the DB are not de-duplicated. Each run inserts fresh rows.</p>
+                  <p className="action-hint">All rows must pass validation before any row is inserted.</p>
                 </section>
 
                 {result && (
                   <section className="card fade-in">
                     <h2 className="card-title">Result</h2>
-                    <div className="stat-row">
-                      <StatCard label="Inserted" value={result.inserted} accent="var(--accent)" />
-                      <StatCard label="Total rows" value={result.total} />
-                      <StatCard label="Errors" value={result.errors?.length ?? 0} accent={result.errors?.length ? 'var(--danger)' : undefined} />
-                    </div>
-                    {result.errors?.length > 0 && (
-                      <div className="error-list">
-                        <p className="error-title">Row errors:</p>
-                        {result.errors.map((e, i) => <p key={i} className="error-item">⚠ {e}</p>)}
+                    {result.aborted ? (
+                      <div className="abort-banner">
+                        <span className="abort-icon">🚫</span>
+                        <div>
+                          <p className="abort-title">Import Aborted — Nothing was inserted</p>
+                          <p className="abort-sub">{result.message}</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="stat-row">
+                        <StatCard label="Inserted" value={result.inserted} accent="var(--accent)" />
+                        <StatCard label="Total Rows" value={result.total} />
+                        <StatCard label="DB Errors" value={result.errors?.length ?? 0} accent={(result.errors?.length ?? 0) > 0 ? 'var(--danger)' : undefined} />
                       </div>
                     )}
-                    {result.sql_statements && result.sql_statements.length > 0 && (
-                      <SqlBox statements={result.sql_statements} />
+                    {result.errors?.length > 0 && (
+                      <div className={`error-list ${result.aborted ? 'error-list-aborted' : ''}`}>
+                        <p className="error-title">
+                          {result.aborted ? '🚫 Validation Errors' : '⚠ Import Errors'} — {result.errors.length} issue{result.errors.length !== 1 ? 's' : ''} found{result.aborted ? '. Fix all errors and re-import:' : ':'}
+                        </p>
+                        <div className="error-scroll">
+                          {result.errors.map((e, i) => {
+                            const isValidation = e.includes('NOG:') || e.includes('Recommendation Action:') || e.includes('Recommendation Type:') || e.includes('Hazard Rating:');
+                            return (
+                              <div key={i} className={`error-item ${isValidation ? 'error-item-validation' : 'error-item-db'}`}>
+                                <span className="error-icon">{isValidation ? '⊘' : '✕'}</span>
+                                <span>{e}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    {result.sql_statements?.length > 0 && (
+                      <SqlBox statements={result.sql_statements} label="INSERT SQL — tcp_narrative_report" />
                     )}
                   </section>
                 )}
               </div>
             </div>
+
+            {/* ── ATTACHMENT SECTION (shown after successful import) ── */}
+            {result?.success && treeRows.length > 0 && (
+              <section className="card fade-in attach-section">
+                <h2 className="card-title">04 — Image Attachments</h2>
+                <p className="card-desc">
+                  Upload images per tree. File paths are stored locally and used to generate the attachment INSERT SQL below.
+                </p>
+
+                {/* Starting Report ID input */}
+                <div className="attach-id-row">
+                  <div className="field" style={{ maxWidth: 260 }}>
+                    <label>Starting <code>tcp_narrative_report_id</code> <span className="req">*</span></label>
+                    <input
+                      className="input"
+                      type="number"
+                      placeholder="e.g. max id from tcp_narrative_report"
+                      value={startingReportId}
+                      onChange={e => setStartingReportId(e.target.value)}
+                    />
+                  </div>
+                  <p className="attach-id-hint">
+                    Enter the <strong>first ID</strong> of the rows just inserted into <code>tcp_narrative_report</code>.<br />
+                    Each subsequent tree row will increment by 1.
+                  </p>
+                </div>
+
+                {/* Per-tree upload rows */}
+                <div className="attach-table">
+                  <div className="attach-table-head">
+                    <span>Upload Image</span>
+                    <span>Image File(s)</span>
+                  </div>
+                  {treeRows.map(tr => (
+                    <AttachmentRow
+                      key={tr.tree_no}
+                      treeNo={tr.tree_no}
+                      attachments={attachments}
+                      onChange={updated => setAttachments(updated)}
+                    />
+                  ))}
+                </div>
+
+                {/* Attachment SQL Box */}
+                {attachSql.length > 0 && (
+                  <SqlBox statements={attachSql} label="INSERT SQL — tcp_narrative_report_attachment" />
+                )}
+                {attachSql.length === 0 && startingReportId && (
+                  <p className="attach-no-sql">Upload at least one image above to generate attachment SQL.</p>
+                )}
+                {!startingReportId && (
+                  <p className="attach-no-sql">Enter the starting report ID above to generate attachment SQL.</p>
+                )}
+              </section>
+            )}
           </div>
         )}
 
-        {/* ══ COLUMN MAP TAB ══════════════════════════════════════════════════ */}
+        {/* ══ COLUMN MAP TAB ══ */}
         {tab === 'column-map' && (
           <div className="panel fade-in">
             <section className="card">
               <h2 className="card-title">Column Mapping</h2>
-              <p className="card-desc">Adjust which Excel column (0-based index) maps to each database field. Column A = 0, B = 1, C = 2 …</p>
+              <p className="card-desc">Adjust which Excel column (0-based index) maps to each database field. A=0, B=1, C=2…</p>
               <div className="colmap-grid">
                 {Object.entries(FIELD_LABELS).map(([field, label]) => (
                   <div key={field} className="colmap-row">
                     <span className="colmap-label">{label}</span>
                     <select className="input input-sm" value={colMap[field]} onChange={e => updateCol(field, e.target.value)}>
-                      {COL_LETTERS.map((l, i) => (
-                        <option key={i} value={i}>{l} (col {i})</option>
-                      ))}
+                      {COL_LETTERS.map((l, i) => <option key={i} value={i}>{l} (col {i})</option>)}
                     </select>
                     <span className="colmap-badge">→ DB: <code>{field}</code></span>
                   </div>
@@ -328,7 +438,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ══ RECORDS TAB ══════════════════════════════════════════════════════ */}
+        {/* ══ RECORDS TAB ══ */}
         {tab === 'records' && (
           <div className="panel fade-in">
             <div className="records-header">
@@ -340,7 +450,7 @@ export default function App() {
             {loadingRecords ? (
               <div className="loading-state">Loading records…</div>
             ) : records.length === 0 ? (
-              <div className="empty-state">No records found. Import an Excel file first.</div>
+              <div className="empty-state">No records found. Import a file first.</div>
             ) : (
               <div className="table-wrap">
                 <table className="data-table">
@@ -349,9 +459,7 @@ export default function App() {
                       {['id','app_id','date_created','action_officer_id','tree_no','common_name',
                         'dbh','mh','th','gross_volume','trees_defect','trees_longitude','trees_latitude',
                         'hazard_rating','evaluation','nog','recommendation_action','recommendation',
-                        'status','recommendation_type'].map(col => (
-                        <th key={col}>{col}</th>
-                      ))}
+                        'status','recommendation_type'].map(col => <th key={col}>{col}</th>)}
                     </tr>
                   </thead>
                   <tbody>

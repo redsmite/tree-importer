@@ -11,11 +11,10 @@ import traceback
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 
-# ─── DB CONFIG ────────────────────────────────────────────────────────────────
 DB_CONFIG = {
     "host": "localhost",
     "user": "root",
-    "password": "",          # XAMPP default is empty — change if needed
+    "password": "",
     "port": 3306,
 }
 DB_NAME = "tree_management"
@@ -103,10 +102,20 @@ def init_db():
                 recommendation_type   VARCHAR(200)
             )
         """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS tcp_narrative_report_attachment (
+                id                      INT(20) AUTO_INCREMENT PRIMARY KEY,
+                tcp_narrative_report_id VARCHAR(200),
+                file_name               VARCHAR(200),
+                file_location           VARCHAR(200),
+                date_uploaded           VARCHAR(200),
+                type                    VARCHAR(200)
+            )
+        """)
         conn.commit()
         cur.close()
         conn.close()
-        return jsonify({"success": True, "message": f"Database '{DB_NAME}' and table 'tcp_narrative_report' are ready."})
+        return jsonify({"success": True, "message": f"Database '{DB_NAME}' and tables are ready."})
     except Error as e:
         return jsonify({"success": False, "message": str(e)})
 
@@ -140,22 +149,80 @@ def upload():
         except Error as e:
             return jsonify({"success": False, "message": f"DB connection failed: {str(e)}"})
 
+        # ── Allowed values ────────────────────────────────────────────────────
+        VALID_NOG                   = ['Planted', 'Natural']
+        VALID_RECOMMENDATION_ACTION = ['CUT', 'PRUNE', 'BALL', 'DEAD', 'RETAIN']
+        VALID_RECOMMENDATION_TYPE   = ['TREE', 'PALM', 'DEAD', 'BAMBOO', 'BUSH']
+        VALID_HAZARD_RATING         = ['Low', 'Moderate', 'High', 'Extreme']
+
+        # ── PASS 1: validate ALL rows first ───────────────────────────────────
+        validation_errors = []
+
+        def cell_from(row, col_idx):
+            try:
+                val = row.iloc[col_idx]
+                if pd.isna(val):
+                    return None
+                s = str(val).strip()
+                if s.endswith(".0") and s[:-2].lstrip("-").isdigit():
+                    s = s[:-2]
+                return s if s else None
+            except Exception:
+                return None
+
+        for idx, row in df.iterrows():
+            excel_row = idx + 2
+            nog_val      = cell_from(row, col_map["nog"])
+            rec_act      = cell_from(row, col_map["recommendation_action"])
+            rec_type     = cell_from(row, col_map["recommendation_type"])
+            hazard_val   = cell_from(row, col_map["hazard_rating"])
+            tree_no      = cell_from(row, col_map["tree_no"]) or f"(row {excel_row})"
+
+            if nog_val is not None and nog_val not in VALID_NOG:
+                validation_errors.append(
+                    f"Row {excel_row} [Tree: {tree_no}] — NOG: invalid value '{nog_val}'. "
+                    f"Allowed: {', '.join(VALID_NOG)}"
+                )
+            if rec_act is not None and rec_act.upper() not in VALID_RECOMMENDATION_ACTION:
+                validation_errors.append(
+                    f"Row {excel_row} [Tree: {tree_no}] — Recommendation Action: invalid value '{rec_act}'. "
+                    f"Allowed: {', '.join(VALID_RECOMMENDATION_ACTION)}"
+                )
+            if rec_type is not None and rec_type.upper() not in VALID_RECOMMENDATION_TYPE:
+                validation_errors.append(
+                    f"Row {excel_row} [Tree: {tree_no}] — Recommendation Type: invalid value '{rec_type}'. "
+                    f"Allowed: {', '.join(VALID_RECOMMENDATION_TYPE)}"
+                )
+            if hazard_val is not None and hazard_val not in VALID_HAZARD_RATING:
+                validation_errors.append(
+                    f"Row {excel_row} [Tree: {tree_no}] — Hazard Rating: invalid value '{hazard_val}'. "
+                    f"Allowed: {', '.join(VALID_HAZARD_RATING)}"
+                )
+
+        # ── Abort if any validation error ─────────────────────────────────────
+        if validation_errors:
+            conn.close()
+            return jsonify({
+                "success": False,
+                "aborted": True,
+                "inserted": 0,
+                "total": len(df),
+                "skipped": 0,
+                "errors": validation_errors,
+                "sql_statements": [],
+                "message": f"Import aborted — {len(validation_errors)} validation error(s) found. No rows were inserted. Fix the errors and re-import."
+            })
+
+        # ── PASS 2: insert everything ─────────────────────────────────────────
         cur = conn.cursor()
         inserted = 0
         errors   = []
 
         for idx, row in df.iterrows():
+            excel_row = idx + 2
+
             def cell(col_idx, r=row):
-                try:
-                    val = r.iloc[col_idx]
-                    if pd.isna(val):
-                        return None
-                    s = str(val).strip()
-                    if s.endswith(".0") and s[:-2].lstrip("-").isdigit():
-                        s = s[:-2]
-                    return s if s else None
-                except Exception:
-                    return None
+                return cell_from(r, col_idx)
 
             try:
                 cur.execute("""
@@ -191,12 +258,13 @@ def upload():
                 ))
                 inserted += 1
             except Exception as e:
-                errors.append(f"Row {idx + 2}: {str(e)}")
+                errors.append(f"Row {excel_row}: {str(e)}")
 
         conn.commit()
         cur.close()
         conn.close()
-        # Build INSERT SQL statements for preview (excluding id — it's AUTO_INCREMENT)
+
+        # ── Build INSERT SQL preview ──────────────────────────────────────────
         sql_statements = []
         conn2 = get_connection()
         cur2  = conn2.cursor(dictionary=True)
@@ -204,7 +272,11 @@ def upload():
             "SELECT * FROM tcp_narrative_report ORDER BY id DESC LIMIT %s",
             (inserted,)
         )
-        rows = list(reversed(cur2.fetchall()))
+        rows2 = list(reversed(cur2.fetchall()))
+
+        # Also return tree_no list for the attachment UI
+        tree_rows = [{"id": r["id"], "tree_no": r["tree_no"]} for r in rows2]
+
         cur2.close()
         conn2.close()
 
@@ -220,14 +292,22 @@ def upload():
                 return 'NULL'
             return "'" + str(v).replace("'", "''") + "'"
 
-        for r in rows:
+        for r in rows2:
             vals = ', '.join(sql_val(r.get(f)) for f in fields)
             cols = ', '.join(fields)
             sql_statements.append(
                 f"INSERT INTO tcp_narrative_report ({cols}) VALUES ({vals});"
             )
 
-        return jsonify({"success": True, "inserted": inserted, "total": len(df), "errors": errors, "sql_statements": sql_statements})
+        return jsonify({
+            "success": True,
+            "inserted": inserted,
+            "total": len(df),
+            "skipped": 0,
+            "errors": errors,
+            "sql_statements": sql_statements,
+            "tree_rows": tree_rows,
+        })
 
     except Exception as e:
         traceback.print_exc()
