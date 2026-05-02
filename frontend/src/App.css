@@ -171,7 +171,7 @@ select.input {
 .btn-primary:active { transform: scale(0.98) translateY(0); }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
 .btn-ghost {
-  background: transparent; border: 1.5px solid var(--border2); color: var(--muted);
+  background: var(--accent-lt); border: 1.5px solid var(--border2); color: var(--muted);
   padding: 8px 14px; font-size: 0.78rem;
 }
 .btn-ghost:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-lt); }

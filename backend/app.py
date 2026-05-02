@@ -11,13 +11,15 @@ import traceback
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 
+import os
+
 DB_CONFIG = {
-    "host": "localhost",
-    "user": "root",
-    "password": "",
-    "port": 3306,
+    "host":     os.environ.get("DB_HOST", "localhost"),
+    "user":     os.environ.get("DB_USER", "root"),
+    "password": os.environ.get("DB_PASSWORD", ""),
+    "port":     int(os.environ.get("DB_PORT", 3306)),
 }
-DB_NAME = "tree_management"
+DB_NAME = os.environ.get("DB_NAME", "tree_management")
 
 DEFAULT_COLUMN_MAP = {
     "tree_no":               1,

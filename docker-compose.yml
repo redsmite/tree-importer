@@ -1,0 +1,52 @@
+services:
+
+  # ── MySQL ───────────────────────────────────────────────────────────────────
+  # Port 3306 is NOT exposed to the host — XAMPP already owns it.
+  # The backend reaches MySQL via the internal Docker network (host = "db").
+  db:
+    image: mysql:8.0
+    container_name: tree_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ""
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+      MYSQL_DATABASE: tree_management
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "--silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ── Flask Backend ───────────────────────────────────────────────────────────
+  backend:
+    build: ./backend
+    container_name: tree_backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      DB_HOST: db
+      DB_USER: root
+      DB_PASSWORD: ""
+      DB_PORT: "3306"
+      DB_NAME: tree_management
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # ── React Frontend ──────────────────────────────────────────────────────────
+  frontend:
+    build: ./frontend
+    container_name: tree_frontend
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      PORT: "3001"
+    depends_on:
+      - backend
+
+volumes:
+  db_data:
