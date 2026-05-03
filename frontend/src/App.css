@@ -40,6 +40,22 @@
 }
 .header-status { display: flex; align-items: center; gap: 12px; }
 
+/* Init/Reset DB button — sits on dark green header, needs white outline style */
+.btn-header {
+  background: transparent;
+  border: 1.5px solid rgba(255,255,255,0.6);
+  color: #ffffff;
+  padding: 7px 14px; font-size: 0.76rem;
+  border-radius: 8px; cursor: pointer;
+  font-family: var(--sans); font-weight: 700; letter-spacing: 0.04em;
+  display: inline-flex; align-items: center; gap: 6px;
+  transition: background .15s, border-color .15s;
+}
+.btn-header:hover {
+  background: rgba(255,255,255,0.15);
+  border-color: #ffffff;
+}
+
 /* ── TABS ─────────────────────────────────────────────────────────────────── */
 .tabs {
   display: flex;
@@ -171,7 +187,7 @@ select.input {
 .btn-primary:active { transform: scale(0.98) translateY(0); }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
 .btn-ghost {
-  background: var(--accent-lt); border: 1.5px solid var(--border2); color: var(--muted);
+  background: transparent; border: 1.5px solid var(--border2); color: var(--muted);
   padding: 8px 14px; font-size: 0.78rem;
 }
 .btn-ghost:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-lt); }
@@ -312,12 +328,8 @@ select.input {
 
 /* ── VALIDATION ERRORS ────────────────────────────────────────────────────── */
 .error-scroll {
-  max-height: 220px;
-  overflow-y: auto;
-  margin-top: 6px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  max-height: 220px; overflow-y: auto; margin-top: 6px;
+  display: flex; flex-direction: column; gap: 4px;
 }
 .error-item {
   display: flex; align-items: flex-start; gap: 8px;
@@ -325,59 +337,37 @@ select.input {
   padding: 6px 10px; border-radius: 6px; line-height: 1.5;
 }
 .error-item-validation {
-  background: rgba(224,140,42,0.08);
-  border: 1px solid rgba(224,140,42,0.25);
-  color: #7a4a10;
+  background: rgba(224,140,42,0.08); border: 1px solid rgba(224,140,42,0.25); color: #7a4a10;
 }
 .error-item-db {
-  background: rgba(192,57,43,0.07);
-  border: 1px solid rgba(192,57,43,0.2);
-  color: #7a3030;
+  background: rgba(192,57,43,0.07); border: 1px solid rgba(192,57,43,0.2); color: #7a3030;
 }
-.error-icon {
-  flex-shrink: 0;
-  font-size: 0.85rem;
-  margin-top: 1px;
-}
+.error-icon { flex-shrink: 0; font-size: 0.85rem; margin-top: 1px; }
 .error-item-validation .error-icon { color: var(--warn); }
 .error-item-db .error-icon { color: var(--danger); }
 
 /* ── ABORT BANNER ─────────────────────────────────────────────────────────── */
 .abort-banner {
   display: flex; align-items: flex-start; gap: 14px;
-  background: var(--danger-lt);
-  border: 1.5px solid rgba(192,57,43,0.3);
-  border-radius: 10px; padding: 16px 18px;
-  margin-bottom: 14px;
+  background: var(--danger-lt); border: 1.5px solid rgba(192,57,43,0.3);
+  border-radius: 10px; padding: 16px 18px; margin-bottom: 14px;
 }
 .abort-icon { font-size: 1.5rem; flex-shrink: 0; }
-.abort-title {
-  font-size: 0.88rem; font-weight: 700; color: var(--danger); margin-bottom: 4px;
-}
+.abort-title { font-size: 0.88rem; font-weight: 700; color: var(--danger); margin-bottom: 4px; }
 .abort-sub { font-size: 0.78rem; color: #7a3030; line-height: 1.5; }
-.error-list-aborted {
-  border-color: rgba(192,57,43,0.3);
-  background: rgba(192,57,43,0.04);
-}
+.error-list-aborted { border-color: rgba(192,57,43,0.3); background: rgba(192,57,43,0.04); }
 
 /* ── ATTACHMENT SECTION ───────────────────────────────────────────────────── */
 .attach-section { margin-top: 22px; }
-
 .attach-id-row {
   display: flex; align-items: flex-start; gap: 20px;
   background: var(--surface2); border: 1px solid var(--border);
   border-radius: 8px; padding: 16px 18px; margin-bottom: 20px;
 }
-.attach-id-hint {
-  font-size: 0.78rem; color: var(--muted); line-height: 1.6; padding-top: 22px;
-}
+.attach-id-hint { font-size: 0.78rem; color: var(--muted); line-height: 1.6; padding-top: 22px; }
 .attach-id-hint strong { color: var(--text); }
 .attach-id-hint code { color: var(--accent2); font-family: var(--mono); font-size: 0.75rem; }
-
-.attach-table {
-  border: 1px solid var(--border); border-radius: 10px;
-  overflow: hidden; margin-bottom: 18px;
-}
+.attach-table { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 18px; }
 .attach-table-head {
   display: grid; grid-template-columns: 220px 1fr;
   background: linear-gradient(135deg, #2d6235, #3a7d44);
@@ -385,20 +375,14 @@ select.input {
   font-size: 0.68rem; font-weight: 700; letter-spacing: 0.09em;
   color: rgba(255,255,255,0.85); text-transform: uppercase;
 }
-
 .attach-row {
   display: grid; grid-template-columns: 220px 1fr;
-  gap: 16px; padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
-  align-items: flex-start;
-  transition: background .15s;
+  gap: 16px; padding: 12px 16px; border-bottom: 1px solid var(--border);
+  align-items: flex-start; transition: background .15s;
 }
 .attach-row:last-child { border-bottom: none; }
 .attach-row:hover { background: var(--surface2); }
-
-.attach-tree-label {
-  display: flex; flex-direction: column; gap: 8px;
-}
+.attach-tree-label { display: flex; flex-direction: column; gap: 8px; }
 .attach-tree-tag {
   font-family: var(--mono); font-size: 0.78rem; font-weight: 600;
   color: var(--accent2); background: var(--accent-lt);
@@ -410,37 +394,100 @@ select.input {
   color: var(--bark); cursor: pointer; border-radius: 6px;
   font-family: var(--sans); font-size: 0.75rem; font-weight: 700;
   padding: 6px 12px; letter-spacing: 0.03em;
-  transition: background .15s, border-color .15s;
-  text-align: left;
+  transition: background .15s, border-color .15s; text-align: left;
 }
 .btn-upload-img:hover { background: #eddfc8; border-color: var(--bark); }
-
-.attach-files {
-  display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding-top: 4px;
-}
-.attach-empty {
-  font-size: 0.75rem; color: var(--muted); font-style: italic;
-}
+.attach-files { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding-top: 4px; }
+.attach-empty { font-size: 0.75rem; color: var(--muted); font-style: italic; }
 .attach-file-chip {
   display: flex; align-items: center; gap: 6px;
   background: #f0f4eb; border: 1px solid var(--border2);
   border-radius: 20px; padding: 4px 10px 4px 8px;
-  font-family: var(--mono); font-size: 0.73rem; color: var(--text);
-  max-width: 260px;
+  font-family: var(--mono); font-size: 0.73rem; color: var(--text); max-width: 260px;
 }
 .attach-file-icon { font-size: 0.85rem; flex-shrink: 0; }
-.attach-file-name {
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  color: var(--accent2); font-weight: 500;
-}
+.attach-file-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--accent2); font-weight: 500; }
 .attach-remove {
   background: none; border: none; cursor: pointer; color: var(--muted);
-  font-size: 0.7rem; padding: 0 0 0 4px; flex-shrink: 0;
-  transition: color .15s;
+  font-size: 0.7rem; padding: 0 0 0 4px; flex-shrink: 0; transition: color .15s;
 }
 .attach-remove:hover { color: var(--danger); }
+.attach-no-sql { font-size: 0.78rem; color: var(--muted); font-style: italic; text-align: center; padding: 12px 0; }
 
-.attach-no-sql {
-  font-size: 0.78rem; color: var(--muted); font-style: italic;
-  text-align: center; padding: 12px 0;
+/* ── HEADER DANGER BUTTON ─────────────────────────────────────────────────── */
+.btn-header-danger {
+  background: transparent;
+  border: 1.5px solid rgba(248,100,100,0.7);
+  color: #ffc2c2;
 }
+.btn-header-danger:hover {
+  background: rgba(220,50,50,0.2);
+  border-color: #ff9090;
+  color: #ffffff;
+}
+
+/* ── RESET CONFIRM MODAL ──────────────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 999;
+  background: rgba(20,35,20,0.55);
+  backdrop-filter: blur(3px);
+  display: flex; align-items: center; justify-content: center;
+}
+.modal {
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: 16px; padding: 32px 36px;
+  max-width: 420px; width: 90%;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.18);
+  text-align: center;
+  animation: fadeIn 0.2s ease;
+}
+.modal-icon { font-size: 2.4rem; display: block; margin-bottom: 12px; }
+.modal-title { font-size: 1.1rem; font-weight: 800; color: var(--text); margin-bottom: 12px; }
+.modal-body { font-size: 0.82rem; color: var(--muted); line-height: 1.7; margin-bottom: 24px; }
+.modal-body strong { color: var(--danger); }
+.modal-actions { display: flex; gap: 12px; justify-content: center; }
+.btn-modal-cancel {
+  background: var(--surface2); border: 1.5px solid var(--border2);
+  color: var(--muted); padding: 10px 22px; border-radius: 8px;
+  font-family: var(--sans); font-weight: 700; font-size: 0.85rem;
+  cursor: pointer; transition: background .15s;
+}
+.btn-modal-cancel:hover { background: var(--border); color: var(--text); }
+.btn-modal-confirm {
+  background: var(--danger); color: #fff;
+  border: none; padding: 10px 22px; border-radius: 8px;
+  font-family: var(--sans); font-weight: 700; font-size: 0.85rem;
+  cursor: pointer; transition: background .15s;
+}
+.btn-modal-confirm:hover { background: #a93225; }
+.btn-modal-confirm:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* ── SQL HINT (max id helper) ─────────────────────────────────────────────── */
+.sql-hint-wrap {
+  margin-top: 8px;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: 7px;
+  padding: 8px 10px;
+}
+.sql-hint-label {
+  display: block; font-size: 0.67rem; font-weight: 600;
+  color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em;
+  margin-bottom: 5px;
+}
+.sql-hint-row {
+  display: flex; align-items: center; gap: 8px;
+}
+.sql-hint-code {
+  font-family: var(--mono); font-size: 0.75rem;
+  color: var(--accent2); flex: 1;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.btn-hint-copy {
+  background: var(--accent); color: #fff;
+  border: none; cursor: pointer; border-radius: 5px;
+  font-size: 0.8rem; width: 26px; height: 26px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; transition: background .15s;
+}
+.btn-hint-copy:hover { background: var(--accent2); }

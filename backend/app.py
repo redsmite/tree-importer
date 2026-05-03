@@ -330,5 +330,85 @@ def get_trees():
         return jsonify({"success": False, "message": str(e)})
 
 
+@app.route("/api/reset", methods=["POST"])
+def reset_db():
+    """Truncate both tables. ONLY works when DB_HOST is localhost/127.0.0.1 (safety guard)."""
+    host = DB_CONFIG.get("host", "localhost").lower().strip()
+    safe_hosts = {"localhost", "127.0.0.1", "db"}   # "db" = docker-compose service name
+    if host not in safe_hosts:
+        return jsonify({
+            "success": False,
+            "message": f"Reset blocked: DB host is '{host}'. Truncate is only allowed on localhost to protect the live database."
+        })
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("SET FOREIGN_KEY_CHECKS = 0")
+        cur.execute("TRUNCATE TABLE tcp_narrative_report")
+        cur.execute("TRUNCATE TABLE tcp_narrative_report_attachment")
+        cur.execute("SET FOREIGN_KEY_CHECKS = 1")
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({"success": True, "message": "Tables truncated successfully."})
+    except Error as e:
+        return jsonify({"success": False, "message": str(e)})
+
+
+def auto_init_db(retries=10, delay=3):
+    """Auto-create database and tables on startup, with retries for Docker."""
+    import time
+    for attempt in range(1, retries + 1):
+        try:
+            conn = get_connection(with_db=False)
+            cur = conn.cursor()
+            cur.execute(f"CREATE DATABASE IF NOT EXISTS `{DB_NAME}`")
+            cur.execute(f"USE `{DB_NAME}`")
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS tcp_narrative_report (
+                    id                    INT(20) AUTO_INCREMENT PRIMARY KEY,
+                    app_id                INT(20),
+                    date_created          VARCHAR(200),
+                    action_officer_id     INT(20),
+                    tree_no               VARCHAR(200),
+                    common_name           TEXT,
+                    dbh                   VARCHAR(200),
+                    mh                    VARCHAR(200),
+                    th                    VARCHAR(200),
+                    gross_volume          VARCHAR(200),
+                    trees_defect          TEXT,
+                    trees_longitude       VARCHAR(200),
+                    trees_latitude        VARCHAR(200),
+                    hazard_rating         VARCHAR(200),
+                    evaluation            TEXT,
+                    nog                   VARCHAR(200),
+                    recommendation_action VARCHAR(200),
+                    recommendation        TEXT,
+                    status                VARCHAR(200) DEFAULT 'Active',
+                    recommendation_type   VARCHAR(200)
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS tcp_narrative_report_attachment (
+                    id                      INT(20) AUTO_INCREMENT PRIMARY KEY,
+                    tcp_narrative_report_id VARCHAR(200),
+                    file_name               VARCHAR(200),
+                    file_location           VARCHAR(200),
+                    date_uploaded           VARCHAR(200),
+                    type                    VARCHAR(200)
+                )
+            """)
+            conn.commit()
+            cur.close()
+            conn.close()
+            print(f"[startup] Database and tables ready.")
+            return
+        except Error as e:
+            print(f"[startup] Attempt {attempt}/{retries} — DB not ready yet: {e}")
+            time.sleep(delay)
+    print("[startup] WARNING: Could not auto-init database after all retries.")
+
+
 if __name__ == "__main__":
+    auto_init_db()
     app.run(debug=True, host="0.0.0.0", port=5000)

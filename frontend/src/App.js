@@ -22,6 +22,25 @@ const DEFAULT_COL_MAP = {
 const COL_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 const LS_KEY = 'tree_attachments';
 
+const OFFICERS = [
+  { id: 84,   last_name: "Carolino",  first_name: "Anne Patricia" },
+  { id: 125,  last_name: "Belen",     first_name: "Sarah" },
+  { id: 128,  last_name: "Paulino",   first_name: "Ezra Jane" },
+  { id: 495,  last_name: "Gallibu",   first_name: "Shirley" },
+  { id: 497,  last_name: "Nuguid",    first_name: "Emelyn Joyce" },
+  { id: 500,  last_name: "Rosal",     first_name: "Joel" },
+  { id: 531,  last_name: "Atienza",   first_name: "Bernadette" },
+  { id: 558,  last_name: "Romero",    first_name: "Diana" },
+  { id: 1347, last_name: "Ravina",    first_name: "Jason Kevin" },
+  { id: 1425, last_name: "Abadicio",  first_name: "Joseph Ryan" },
+  { id: 1463, last_name: "Manucom",   first_name: "Justin Gerick" },
+  { id: 1836, last_name: "Nuguid",    first_name: "Emelyn" },
+  { id: 2230, last_name: "Diaz",      first_name: "Kathreen" },
+  { id: 2280, last_name: "Pullan",    first_name: "Carizza" },
+];
+
+const MAX_ID_SQL = "SELECT max(id)+1 FROM tcp_narrative_report";
+
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 function loadAttachments() {
   try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}'); }
@@ -60,6 +79,25 @@ function SqlBox({ statements, label }) {
         </button>
       </div>
       <textarea className="sql-textarea" readOnly value={text} spellCheck={false} />
+    </div>
+  );
+}
+
+// Inline copy SQL hint box
+function SqlHint({ sql }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = () => {
+    navigator.clipboard.writeText(sql).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
+  };
+  return (
+    <div className="sql-hint-wrap">
+      <span className="sql-hint-label">Run this on your DB first:</span>
+      <div className="sql-hint-row">
+        <code className="sql-hint-code">{sql}</code>
+        <button className="btn-hint-copy" onClick={handleCopy} title="Copy SQL">
+          {copied ? '✓' : '⎘'}
+        </button>
+      </div>
     </div>
   );
 }
@@ -119,19 +157,18 @@ export default function App() {
   const [colMap, setColMap] = useState({ ...DEFAULT_COL_MAP });
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
+  const [resetting, setResetting] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const [records, setRecords] = useState([]);
   const [loadingRecords, setLoadingRecords] = useState(false);
 
-  // Attachment state
   const [attachments, setAttachments] = useState(loadAttachments());
   const [startingReportId, setStartingReportId] = useState('');
   const [attachSql, setAttachSql] = useState([]);
 
-  // Persist attachments to localStorage whenever they change
   useEffect(() => { saveAttachments(attachments); }, [attachments]);
 
-  // Rebuild attachment SQL whenever attachments or startingReportId changes
   useEffect(() => {
     if (!result?.tree_rows?.length || !startingReportId) { setAttachSql([]); return; }
     const baseId = parseInt(startingReportId, 10);
@@ -140,7 +177,6 @@ export default function App() {
     const today = new Date().toISOString().slice(0, 10);
     const FILE_LOCATION = '/var/www/tcp/assets/attachments/NarrativeReport/';
     const TYPE = 'Narrative Report';
-
     const lines = [];
     result.tree_rows.forEach((tr, idx) => {
       const reportId = baseId + idx;
@@ -167,6 +203,26 @@ export default function App() {
       if (r.data.success) toast.success(r.data.message);
       else toast.error(r.data.message);
     } catch { toast.error('Failed to initialise database.'); }
+  };
+
+  const handleReset = async () => {
+    setShowResetConfirm(false);
+    setResetting(true);
+    try {
+      const r = await axios.post('/api/reset');
+      if (r.data.success) {
+        localStorage.removeItem(LS_KEY);
+        setAttachments({});
+        setResult(null);
+        setRecords([]);
+        setStartingReportId('');
+        setAttachSql([]);
+        toast.success('Tables truncated and local storage cleared.');
+      } else {
+        toast.error(r.data.message);
+      }
+    } catch { toast.error('Reset failed.'); }
+    finally { setResetting(false); }
   };
 
   const onDrop = useCallback(accepted => {
@@ -223,6 +279,26 @@ export default function App() {
     <div className="app">
       <Toaster position="top-right" toastOptions={{ style: { background: '#ffffff', color: '#1e2d1a', border: '1px solid #d4e0c8', boxShadow: '0 4px 12px rgba(58,125,68,0.15)' }}} />
 
+      {/* ── RESET CONFIRM MODAL ── */}
+      {showResetConfirm && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <span className="modal-icon">⚠️</span>
+            <h3 className="modal-title">Reset Everything?</h3>
+            <p className="modal-body">
+              This will <strong>truncate</strong> both tables in the <strong>local</strong> database and clear all image attachments from localStorage.<br /><br />
+              This action <strong>cannot be undone</strong>.
+            </p>
+            <div className="modal-actions">
+              <button className="btn-modal-cancel" onClick={() => setShowResetConfirm(false)}>Cancel</button>
+              <button className="btn-modal-confirm" onClick={handleReset} disabled={resetting}>
+                {resetting ? 'Resetting…' : '🗑 Yes, Reset'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <header className="header">
         <div className="header-inner">
           <div className="header-brand">
@@ -234,7 +310,12 @@ export default function App() {
           </div>
           <div className="header-status">
             <StatusBadge ok={connected} />
-            {connected && <button className="btn btn-ghost btn-sm" onClick={handleInitDb}>Init / Reset DB</button>}
+            {connected && (
+              <>
+                <button className="btn-header" onClick={handleInitDb}>Init / Reset DB</button>
+                <button className="btn-header btn-header-danger" onClick={() => setShowResetConfirm(true)}>🗑 Reset & Clear</button>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -286,8 +367,19 @@ export default function App() {
                       <input className="input" type="number" placeholder="e.g. 1001" value={appId} onChange={e => setAppId(e.target.value)} />
                     </div>
                     <div className="field">
-                      <label>Action Officer ID <span className="req">*</span></label>
-                      <input className="input" type="number" placeholder="e.g. 42" value={officerId} onChange={e => setOfficerId(e.target.value)} />
+                      <label>Action Officer <span className="req">*</span></label>
+                      <select
+                        className="input"
+                        value={officerId}
+                        onChange={e => setOfficerId(e.target.value)}
+                      >
+                        <option value="">— Select officer —</option>
+                        {OFFICERS.map(o => (
+                          <option key={o.id} value={o.id}>
+                            {o.last_name}, {o.first_name.trim()} (ID: {o.id})
+                          </option>
+                        ))}
+                      </select>
                     </div>
                     <div className="field">
                       <label>Header Row #</label>
@@ -359,7 +451,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* ── ATTACHMENT SECTION (shown after successful import) ── */}
+            {/* ── ATTACHMENT SECTION ── */}
             {result?.success && treeRows.length > 0 && (
               <section className="card fade-in attach-section">
                 <h2 className="card-title">04 — Image Attachments</h2>
@@ -367,25 +459,25 @@ export default function App() {
                   Upload images per tree. File paths are stored locally and used to generate the attachment INSERT SQL below.
                 </p>
 
-                {/* Starting Report ID input */}
                 <div className="attach-id-row">
-                  <div className="field" style={{ maxWidth: 260 }}>
+                  <div className="field" style={{ maxWidth: 300 }}>
                     <label>Starting <code>tcp_narrative_report_id</code> <span className="req">*</span></label>
                     <input
                       className="input"
                       type="number"
-                      placeholder="e.g. max id from tcp_narrative_report"
+                      placeholder="e.g. 101"
                       value={startingReportId}
                       onChange={e => setStartingReportId(e.target.value)}
                     />
+                    <SqlHint sql={MAX_ID_SQL} />
                   </div>
                   <p className="attach-id-hint">
                     Enter the <strong>first ID</strong> of the rows just inserted into <code>tcp_narrative_report</code>.<br />
+                    Run the SQL query on the left to get the correct starting ID.<br />
                     Each subsequent tree row will increment by 1.
                   </p>
                 </div>
 
-                {/* Per-tree upload rows */}
                 <div className="attach-table">
                   <div className="attach-table-head">
                     <span>Upload Image</span>
@@ -401,7 +493,6 @@ export default function App() {
                   ))}
                 </div>
 
-                {/* Attachment SQL Box */}
                 {attachSql.length > 0 && (
                   <SqlBox statements={attachSql} label="INSERT SQL — tcp_narrative_report_attachment" />
                 )}
